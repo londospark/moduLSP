@@ -12,7 +12,7 @@ CONST
 TYPE
   Name = ARRAY [0..NameLen - 1] OF CHAR;
 
-  SymKind = (skModule, skConst, skType, skVar, skField, skParam, skProc, skEnum, skImport, skWith);
+  SymKind = (skModule, skConst, skType, skVar, skField, skParam, skProc, skEnum, skImport, skWith, skCase, skLabel);
 
   Sym = RECORD
           name: Name;
@@ -22,8 +22,11 @@ TYPE
           owner: INTEGER;       (* fields and enum members: the owning type symbol *)
           typeName: Name;       (* first type identifier of the declaration, "" if unknown *)
           typeMod: Name;        (* qualifier in Module.Type *)
-          imp: Name;            (* skImport: module it comes from; skWith: dotted designator *)
+          imp: Name;            (* skImport: module it comes from; skWith/skCase: dotted designator;
+                                   skLabel: owner is the skCase, isRecord marks the start of a range A..B *)
           isRecord: BOOLEAN;    (* type: is a record; var/field: has an anonymous record type *)
+          hasElse: BOOLEAN;     (* skCase: statement has an ELSE part *)
+          opaque: BOOLEAN;      (* skCase: selector is not a plain designator *)
           anonOwner: INTEGER;   (* var/field with an anonymous record: the symbol owning its fields *)
           dFrom, dTo: CARDINAL; (* declaration text, for hover / detail *)
           bodyEnd: CARDINAL     (* procedures with a body: offset of the closing END *)

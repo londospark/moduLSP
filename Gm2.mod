@@ -163,17 +163,16 @@ BEGIN
   RETURN FALSE
 END RangeHas;
 
-PROCEDURE Check (d: Doc; VAR out: Buf);
+PROCEDURE Check (d: Doc; VAR out: Buf; VAR first: BOOLEAN);
 VAR
   base, dir, qdir, qfile, qerr, file, errFile, cmd: ARRAY [0..1023] OF CHAR;
   eb: Buf;
   p, ls, le, n, line, col, off, k, count: CARDINAL;
   sevStart, sevEnd, msgStart, sev: CARDINAL;
   t: CharPtr;
-  first, ok: BOOLEAN;
+  ok: BOOLEAN;
   fl: CARDINAL;
 BEGIN
-  Add (out, '[');
   BaseName (d^.path, base);
   DirName (d^.path, dir);
   Copy (file, tmpDir);
@@ -181,10 +180,7 @@ BEGIN
   Append (file, base);
   Copy (errFile, tmpDir);
   Append (errFile, '/err.txt');
-  IF NOT WriteFile (file, d^.text) THEN
-    Add (out, ']');
-    RETURN
-  END;
+  IF NOT WriteFile (file, d^.text) THEN RETURN END;
   ShellQuote (dir, qdir);
   ShellQuote (file, qfile);
   ShellQuote (errFile, qerr);
@@ -200,7 +196,6 @@ BEGIN
   Append (cmd, ' >/dev/null');
   Run (cmd);
   Init (eb);
-  first := TRUE;
   count := 0;
   IF ReadFile (errFile, eb) THEN
     t := eb.data;
@@ -268,8 +263,7 @@ BEGIN
       END
     END
   END;
-  Release (eb);
-  Add (out, ']')
+  Release (eb)
 END Check;
 
 END Gm2.

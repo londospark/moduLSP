@@ -11,7 +11,7 @@ CONST
   MaxStack = 255;
 
 TYPE
-  OpenKind = (opOther, opProc, opRec, opModule, opWith, opVariant);
+  OpenKind = (opOther, opProc, opRec, opModule, opWith, opVariant, opCase);
   Opener = RECORD
              kind: OpenKind;
              sym: INTEGER
@@ -140,6 +140,8 @@ BEGIN
   d^.syms^[idx].imp[0] := 0C;
   d^.syms^[idx].isRecord := FALSE;
   d^.syms^[idx].anonOwner := -1;
+  d^.syms^[idx].hasElse := FALSE;
+  d^.syms^[idx].opaque := FALSE;
   d^.syms^[idx].dFrom := d^.toks^[tok].start;
   d^.syms^[idx].dTo := d^.toks^[tok].stop;
   d^.syms^[idx].bodyEnd := 0;
@@ -399,23 +401,23 @@ BEGIN
   RETURN j + 1
 END ParseImport;
 
-(* WITH designator DO: remember the designator (dotted) and where the body starts. *)
-PROCEDURE AddWith (i: CARDINAL): INTEGER;
+(* Dotted text of the designator starting at token j, up to DO / OF. [..] and ^ are dropped;
+   bad is set when anything else (calls, operators, numbers) shows up. *)
+PROCEDURE BuildDesignator (j: CARDINAL; VAR out: Name; VAR bad: BOOLEAN): CARDINAL;
 VAR
-  j, s: CARDINAL;
   depth: CARDINAL;
   nm: Name;
 BEGIN
-  IF NOT IsIdent (i + 1) THEN RETURN -1 END;
-  s := AddSym (i + 1, skWith, -3, -1);
-  sd^.syms^[s].imp[0] := 0C;
-  j := i + 1;
-  WHILE (j < sd^.ntoks) AND NOT IsKw (j, kwDO) DO
+  out[0] := 0C;
+  bad := FALSE;
+  WHILE (j < sd^.ntoks) AND NOT IsKw (j, kwDO) AND NOT IsKw (j, kwOF) DO
     IF IsIdent (j) THEN
       TokName (j, nm);
-      Append (sd^.syms^[s].imp, nm)
+      Append (out, nm)
     ELSIF IsSym (j, '.') THEN
-      Append (sd^.syms^[s].imp, '.')
+      Append (out, '.')
+    ELSIF IsSym (j, '^') THEN
+      (* dereference *)
     ELSIF IsSym (j, '[') THEN
       depth := 0;
       REPEAT
@@ -423,9 +425,23 @@ BEGIN
         INC (j)
       UNTIL (depth = 0) OR (j >= sd^.ntoks);
       DEC (j)
+    ELSE
+      bad := TRUE
     END;
     INC (j)
   END;
+  RETURN j
+END BuildDesignator;
+
+(* WITH designator DO: remember the designator (dotted) and where the body starts. *)
+PROCEDURE AddWith (i: CARDINAL): INTEGER;
+VAR
+  j, s: CARDINAL;
+  bad: BOOLEAN;
+BEGIN
+  IF NOT IsIdent (i + 1) THEN RETURN -1 END;
+  s := AddSym (i + 1, skWith, -3, -1);
+  j := BuildDesignator (i + 1, sd^.syms^[s].imp, bad);
   IF j < sd^.ntoks THEN
     sd^.syms^[s].dFrom := sd^.toks^[j].stop
   ELSE
@@ -435,6 +451,29 @@ BEGIN
   sd^.syms^[s].bodyEnd := sd^.text.len;
   RETURN VAL (INTEGER, s)
 END AddWith;
+
+(* CASE selector OF: remember the selector, labels follow as skLabel symbols. *)
+PROCEDURE AddCase (i: CARDINAL): INTEGER;
+VAR
+  s, j: CARDINAL;
+  bad: BOOLEAN;
+BEGIN
+  s := AddSym (i, skCase, -3, -1);
+  j := BuildDesignator (i + 1, sd^.syms^[s].imp, bad);
+  sd^.syms^[s].opaque := bad OR (sd^.syms^[s].imp[0] = 0C);
+  RETURN VAL (INTEGER, s)
+END AddCase;
+
+PROCEDURE IsDots (i: CARDINAL): BOOLEAN;
+BEGIN
+  RETURN (i < sd^.ntoks) AND (sd^.toks^[i].kind = tkSym) AND (sd^.toks^[i].c1 = '.')
+         AND (sd^.toks^[i].c2 = '.')
+END IsDots;
+
+PROCEDURE TopIs (k: OpenKind): BOOLEAN;
+BEGIN
+  RETURN (sp > 0) AND (stack[sp - 1].kind = k)
+END TopIs;
 
 PROCEDURE HandleKw (i: CARDINAL): CARDINAL;
 VAR
@@ -478,20 +517,24 @@ BEGIN
         declAt := MaxCard;
         IF IsIdent (i + 1) AND IsSym (i + 2, ':') THEN declAt := i + 1 END
       ELSE
-        Push (opOther, -1);
+        Push (opCase, AddCase (i));
+        labelMode := FALSE;
         section := secNone
       END;
       RETURN i + 1 |
     kwOF:
-      IF (sp > 0) AND (stack[sp - 1].kind = opVariant) THEN
+      IF TopIs (opVariant) OR TopIs (opCase) THEN
         labelMode := TRUE;
         declAt := MaxCard
       END;
       RETURN i + 1 |
     kwELSE:
-      IF (sp > 0) AND (stack[sp - 1].kind = opVariant) THEN
+      IF TopIs (opVariant) THEN
         labelMode := FALSE;
         declAt := i + 1
+      ELSIF TopIs (opCase) THEN
+        labelMode := FALSE;
+        IF stack[sp - 1].sym >= 0 THEN sd^.syms^[stack[sp - 1].sym].hasElse := TRUE END
       END;
       RETURN i + 1 |
     kwIF, kwWHILE, kwFOR, kwLOOP:
@@ -528,7 +571,7 @@ END HandleKw;
 
 PROCEDURE Scan (d: Doc);
 VAR
-  i: CARDINAL;
+  i, k: CARDINAL;
 BEGIN
   sd := d;
   sp := 0;
@@ -545,13 +588,20 @@ BEGIN
     ELSIF d^.toks^[i].kind = tkKeyword THEN
       i := HandleKw (i)
     ELSE
+      IF labelMode AND TopIs (opCase) AND (pd = 0) THEN
+        IF IsIdent (i) AND NOT IsSym (i + 1, '.') THEN
+          k := AddSym (i, skLabel, -3, stack[sp - 1].sym)
+        ELSIF IsDots (i) AND (d^.nsyms > 0) AND (d^.syms^[d^.nsyms - 1].kind = skLabel) THEN
+          d^.syms^[d^.nsyms - 1].isRecord := TRUE
+        END
+      END;
       IF IsSym (i, '(') THEN
         INC (pd)
       ELSIF IsSym (i, ')') THEN
         IF pd > 0 THEN DEC (pd) END
       ELSIF IsSym (i, ';') AND (pd = 0) THEN
         IF (section # secNone) OR InRecord () THEN declAt := i + 1 END
-      ELSIF IsSym (i, '|') AND (sp > 0) AND (stack[sp - 1].kind = opVariant) THEN
+      ELSIF IsSym (i, '|') AND (TopIs (opVariant) OR TopIs (opCase)) THEN
         labelMode := TRUE;
         declAt := MaxCard
       ELSIF IsSym (i, ':') AND labelMode AND (pd = 0) THEN
@@ -707,7 +757,9 @@ BEGIN
     skProc: Copy (s, 'procedure') |
     skEnum: Copy (s, 'enum member') |
     skImport: Copy (s, 'import') |
-    skWith: Copy (s, 'with')
+    skWith: Copy (s, 'with') |
+    skCase: Copy (s, 'case') |
+    skLabel: Copy (s, 'label')
   END
 END KindName;
 

@@ -62,11 +62,42 @@ END RangeOfTok;
 
 (* ---- type and chain resolution ---- *)
 
+(* The type symbol named by the declared type of symbol cur (in curD). *)
+PROCEDURE TypeSymOf (curD: Doc; cur: INTEGER; VAR nextD: Doc; VAR t: INTEGER): BOOLEAN;
+VAR
+  u: Doc;
+  i: INTEGER;
+BEGIN
+  IF curD^.syms^[cur].typeName[0] = 0C THEN RETURN FALSE END;
+  t := -1;
+  nextD := curD;
+  IF curD^.syms^[cur].typeMod[0] # 0C THEN
+    u := Module (curD, curD^.syms^[cur].typeMod);
+    IF u = NIL THEN RETURN FALSE END;
+    nextD := u;
+    t := FindTypeGlobal (u, curD^.syms^[cur].typeName)
+  ELSE
+    i := LookupType (curD, curD^.syms^[cur].typeName, curD^.toks^[curD^.syms^[cur].tok].start);
+    IF i >= 0 THEN
+      IF curD^.syms^[i].kind = skType THEN
+        t := i
+      ELSE
+        u := Module (curD, curD^.syms^[i].imp);
+        IF u # NIL THEN
+          nextD := u;
+          t := FindTypeGlobal (u, curD^.syms^[cur].typeName)
+        END
+      END
+    END
+  END;
+  RETURN t >= 0
+END TypeSymOf;
+
 (* The record type that the declared type of symbol s (in cd) leads to. *)
 PROCEDURE TypeOfSym (cd: Doc; s: INTEGER; VAR rd: Doc; VAR rt: INTEGER): BOOLEAN;
 VAR
-  curD, nextD, u: Doc;
-  cur, t, i: INTEGER;
+  curD, nextD: Doc;
+  cur, t: INTEGER;
   step: CARDINAL;
 BEGIN
   curD := cd; cur := s;
@@ -76,29 +107,7 @@ BEGIN
       IF curD^.syms^[cur].anonOwner >= 0 THEN rt := curD^.syms^[cur].anonOwner ELSE rt := cur END;
       RETURN TRUE
     END;
-    IF curD^.syms^[cur].typeName[0] = 0C THEN RETURN FALSE END;
-    t := -1;
-    nextD := curD;
-    IF curD^.syms^[cur].typeMod[0] # 0C THEN
-      u := Module (curD, curD^.syms^[cur].typeMod);
-      IF u = NIL THEN RETURN FALSE END;
-      nextD := u;
-      t := FindTypeGlobal (u, curD^.syms^[cur].typeName)
-    ELSE
-      i := LookupType (curD, curD^.syms^[cur].typeName, curD^.toks^[curD^.syms^[cur].tok].start);
-      IF i >= 0 THEN
-        IF curD^.syms^[i].kind = skType THEN
-          t := i
-        ELSE
-          u := Module (curD, curD^.syms^[i].imp);
-          IF u # NIL THEN
-            nextD := u;
-            t := FindTypeGlobal (u, curD^.syms^[cur].typeName)
-          END
-        END
-      END
-    END;
-    IF t < 0 THEN RETURN FALSE END;
+    IF NOT TypeSymOf (curD, cur, nextD, t) THEN RETURN FALSE END;
     IF nextD^.syms^[t].isRecord THEN
       rd := nextD; rt := t;
       RETURN TRUE
@@ -227,6 +236,67 @@ BEGIN
   END;
   RETURN FALSE
 END WithField;
+
+(* The symbol a dotted designator (a, a.b, M.x ...) names, as seen from offset. *)
+PROCEDURE ResolveDesignator (d: Doc; VAR names: Chain; count, offset: CARDINAL;
+                             VAR td: Doc; VAR ti: INTEGER): BOOLEAN;
+VAR
+  cd, md: Doc;
+  ct, i, t: INTEGER;
+BEGIN
+  IF count = 0 THEN RETURN FALSE END;
+  IF count = 1 THEN
+    IF WithField (d, names[0], offset, td, ti) THEN RETURN TRUE END;
+    i := Lookup (d, names[0], offset);
+    IF i < 0 THEN RETURN FALSE END;
+    IF (d^.syms^[i].kind = skImport) AND NOT Eq (d^.syms^[i].name, d^.syms^[i].imp) THEN
+      md := Module (d, d^.syms^[i].imp);
+      IF md = NIL THEN RETURN FALSE END;
+      t := FindGlobal (md, names[0]);
+      IF t < 0 THEN RETURN FALSE END;
+      td := md; ti := t;
+      RETURN TRUE
+    END;
+    td := d; ti := i;
+    RETURN TRUE
+  END;
+  IF NOT ResolveChain (d, names, count - 1, offset, cd, ct) THEN RETURN FALSE END;
+  IF ct = -1 THEN t := FindGlobal (cd, names[count - 1]) ELSE t := FindField (cd, ct, names[count - 1]) END;
+  IF t < 0 THEN RETURN FALSE END;
+  td := cd; ti := t;
+  RETURN TRUE
+END ResolveDesignator;
+
+PROCEDURE HasEnumMembers (d: Doc; t: INTEGER): BOOLEAN;
+VAR k: CARDINAL;
+BEGIN
+  k := 0;
+  WHILE k < d^.nsyms DO
+    IF (d^.syms^[k].kind = skEnum) AND (d^.syms^[k].owner = t) THEN RETURN TRUE END;
+    INC (k)
+  END;
+  RETURN FALSE
+END HasEnumMembers;
+
+PROCEDURE SelectorEnum (d: Doc; VAR dotted: Name; offset: CARDINAL; VAR ed: Doc; VAR et: INTEGER): BOOLEAN;
+VAR
+  names: Chain;
+  count, step: CARDINAL;
+  td, nd: Doc;
+  ti, t: INTEGER;
+BEGIN
+  count := SplitChain (dotted, names);
+  IF NOT ResolveDesignator (d, names, count, offset, td, ti) THEN RETURN FALSE END;
+  FOR step := 1 TO 8 DO
+    IF NOT TypeSymOf (td, ti, nd, t) THEN RETURN FALSE END;
+    IF HasEnumMembers (nd, t) THEN
+      ed := nd; et := t;
+      RETURN TRUE
+    END;
+    td := nd; ti := t
+  END;
+  RETURN FALSE
+END SelectorEnum;
 
 (* names of the designator that ends right before the '.' at dotPos *)
 PROCEDURE ChainBefore (d: Doc; dotPos: CARDINAL; VAR names: Chain; VAR count: CARDINAL;

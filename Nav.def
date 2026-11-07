@@ -2,7 +2,7 @@ DEFINITION MODULE Nav;
 (* Language features: completion, hover, go-to-definition, document symbols.
    Every procedure appends the JSON "result" value to out. *)
 
-FROM Symbols IMPORT Doc;
+FROM Symbols IMPORT Doc, Name;
 FROM Text IMPORT Buf;
 
 PROCEDURE Complete (d: Doc; offset: CARDINAL; VAR out: Buf);
@@ -10,5 +10,8 @@ PROCEDURE Complete (d: Doc; offset: CARDINAL; VAR out: Buf);
 PROCEDURE Hover (d: Doc; offset: CARDINAL; VAR out: Buf): BOOLEAN;
 PROCEDURE Definition (d: Doc; VAR uri: Buf; offset: CARDINAL; VAR out: Buf): BOOLEAN;
 PROCEDURE DocumentSymbols (d: Doc; VAR uri: Buf; VAR out: Buf);
+
+(* If the dotted designator (as seen from offset) has an enumeration type, give that type. *)
+PROCEDURE SelectorEnum (d: Doc; VAR dotted: Name; offset: CARDINAL; VAR ed: Doc; VAR et: INTEGER): BOOLEAN;
 
 END Nav.

@@ -8,6 +8,7 @@ A small Language Server for **GNU Modula-2**, written in GNU Modula-2.
 | Completion | keywords, builtins (with docs), symbols visible at the cursor, imported names, `Module.` members from `.def` files, `record.` / `ptr^.` fields |
 | Hover | declaration text of the identifier under the cursor |
 | Go to definition | local declarations, and into `.def` files (next to the file, `M2LSP_INCLUDE`, or gm2's library dirs) |
+| Lint | `CASE` over an enumeration (for example the tag of a variant record) with no `ELSE` that misses members is flagged, e.g. `CASE has no ELSE and does not handle Kind: Hexagon`; ranges (`A..C`) are understood |
 | Document symbols | procedures, module-level consts/types/vars |
 
 ## Build and install
@@ -42,6 +43,7 @@ In `Packages/User/LSP.sublime-settings`:
 * Diagnostics come from gm2, which usually stops at the first few errors. They refresh on save, not per keystroke.
 * The scanner is a declaration scanner, not a full parser. It resolves named and anonymous records (including variant parts), pointers to them, procedure-local types, `WITH` statements and call results (`f(x).field`). Types that need real expression typing (for example a field whose type is an anonymous record inside a `POINTER TO RECORD ... END`) are not followed.
 * Positions are byte columns. Clients that support the `utf-8` position encoding (LSP 3.17) get exact columns; others are off only on lines with non-ASCII characters before the cursor.
+* The `CASE` check only covers enumeration-typed selectors. Numeric tags (`CASE tag: CARDINAL OF 0: … | 1, 2: …`) are not compared with the `CASE` statement's labels, and it stays silent when a label is not a plain member name of the enumeration.
 * Only `.def` files are indexed for other modules, not the `.mod` files.
 
 ## Tests
@@ -50,6 +52,7 @@ In `Packages/User/LSP.sublime-settings`:
     python3 tests/robust.py ./m2lsp
     python3 tests/limits.py ./m2lsp   # anonymous records, WITH, call results
     python3 tests/more.py ./m2lsp     # variants, local types, hover text
+    python3 tests/cases.py ./m2lsp    # CASE exhaustiveness lint
 
 ## Credits
 

@@ -19,7 +19,7 @@ FROM Json IMPORT Find, SkipValue, GetString, GetCard;
 FROM Files IMPORT UriToPath;
 FROM Lexer IMPORT OffsetOf;
 FROM Symbols IMPORT Doc, NewDoc, FreeDoc, SetText, PathLen;
-IMPORT Units, Nav, Gm2;
+IMPORT Units, Nav, Gm2, Lint;
 
 CONST
   MaxDocs = 64;
@@ -216,13 +216,19 @@ BEGIN
 END SendError;
 
 PROCEDURE PublishDiagnostics (s: INTEGER);
-VAR n: Buf;
+VAR
+  n: Buf;
+  first: BOOLEAN;
 BEGIN
+  first := TRUE;
   Init (n);
   Add (n, '{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":');
   AddJsonRange (n, slots[s].uri.data, 0, slots[s].uri.len);
   Add (n, ',"diagnostics":');
-  Gm2.Check (slots[s].doc, n);
+  AddCh (n, '[');
+  Gm2.Check (slots[s].doc, n, first);
+  Lint.Check (slots[s].doc, n, first);
+  AddCh (n, ']');
   Add (n, '}}');
   Send (n);
   Release (n)

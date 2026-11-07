@@ -1,0 +1,12 @@
+DEFINITION MODULE Lint;
+(* Checks gm2 does not do. Currently: a CASE statement over an enumeration (for example the
+   tag of a variant record) that has no ELSE part and misses some of the enumeration members. *)
+
+FROM Symbols IMPORT Doc;
+FROM Text IMPORT Buf;
+
+(* Append LSP diagnostics (as comma separated objects) to out; first says whether a comma
+   is needed before the next one. *)
+PROCEDURE Check (d: Doc; VAR out: Buf; VAR first: BOOLEAN);
+
+END Lint.

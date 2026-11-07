@@ -8,7 +8,7 @@ FROM Text IMPORT Buf;
    its library .def files live. *)
 PROCEDURE Setup;
 (* Compile d's current text (in a scratch copy, so unsaved edits count) and append a
-   JSON array of LSP diagnostics to out. *)
-PROCEDURE Check (d: Doc; VAR out: Buf);
+   comma separated LSP diagnostic objects to out (first tells whether a comma is needed). *)
+PROCEDURE Check (d: Doc; VAR out: Buf; VAR first: BOOLEAN);
 
 END Gm2.

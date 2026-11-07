@@ -1,0 +1,14 @@
+DEFINITION MODULE Gm2;
+(* Talks to the real compiler: library search paths and `gm2 -fsyntax-only` diagnostics. *)
+
+FROM Symbols IMPORT Doc;
+FROM Text IMPORT Buf;
+
+(* Create the scratch directory, read M2LSP_FLAGS / M2LSP_INCLUDE and ask gm2 where
+   its library .def files live. *)
+PROCEDURE Setup;
+(* Compile d's current text (in a scratch copy, so unsaved edits count) and append a
+   JSON array of LSP diagnostics to out. *)
+PROCEDURE Check (d: Doc; VAR out: Buf);
+
+END Gm2.

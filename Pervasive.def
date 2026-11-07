@@ -1,0 +1,15 @@
+DEFINITION MODULE Pervasive;
+(* Pervasive identifiers of Modula-2 (PIM/ISO, as accepted by GNU Modula-2).
+   The signatures and one-line descriptions are adapted from the table in
+   catink123/adw-modula2-lsp (MIT, Copyright (c) 2026 Matsvei Radzevich),
+   trimmed to the identifiers gm2 provides. *)
+
+TYPE
+  BKind = (bType, bConst, bProc);
+
+PROCEDURE Count (): CARDINAL;
+PROCEDURE Get (i: CARDINAL; VAR name, sig, doc: ARRAY OF CHAR): BKind;
+(* index of a builtin by exact name, or Count() if none *)
+PROCEDURE Find (name: ARRAY OF CHAR): CARDINAL;
+
+END Pervasive.

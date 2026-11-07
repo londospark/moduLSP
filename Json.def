@@ -1,0 +1,14 @@
+DEFINITION MODULE Json;
+(* Just enough JSON to read LSP requests: path lookup, string/number decode. *)
+
+FROM Text IMPORT CharPtr, Buf;
+
+(* Locate the value at a dotted path such as "params.textDocument.uri".
+   Numeric segments index into arrays. pos is the offset of the value. *)
+PROCEDURE Find (src: CharPtr; len: CARDINAL; path: ARRAY OF CHAR; VAR pos: CARDINAL): BOOLEAN;
+PROCEDURE SkipValue (src: CharPtr; len, pos: CARDINAL): CARDINAL;
+(* Decode the JSON string at pos and append its UTF-8 bytes to out. *)
+PROCEDURE GetString (src: CharPtr; len, pos: CARDINAL; VAR out: Buf): BOOLEAN;
+PROCEDURE GetCard (src: CharPtr; len, pos: CARDINAL; VAR n: CARDINAL): BOOLEAN;
+
+END Json.

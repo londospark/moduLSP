@@ -1,0 +1,43 @@
+DEFINITION MODULE Text;
+(* Growable byte buffers and small string helpers shared by all of m2lsp. *)
+
+TYPE
+  CharPtr = POINTER TO ARRAY [0..2000000000] OF CHAR;
+  Buf = RECORD
+          data: CharPtr;
+          len, cap: CARDINAL
+        END;
+
+PROCEDURE Init (VAR b: Buf);
+PROCEDURE Release (VAR b: Buf);
+PROCEDURE Clear (VAR b: Buf);
+PROCEDURE Reserve (VAR b: Buf; extra: CARDINAL);
+PROCEDURE Add (VAR b: Buf; s: ARRAY OF CHAR);
+PROCEDURE AddCh (VAR b: Buf; c: CHAR);
+PROCEDURE AddBuf (VAR b: Buf; VAR src: Buf);
+PROCEDURE AddRange (VAR b: Buf; p: CharPtr; lo, hi: CARDINAL);
+PROCEDURE AddCard (VAR b: Buf; n: CARDINAL);
+PROCEDURE AddInt (VAR b: Buf; n: INTEGER);
+PROCEDURE AddUtf8 (VAR b: Buf; cp: CARDINAL);
+(* JSON string literal output (quotes included, escapes applied). *)
+PROCEDURE AddJson (VAR b: Buf; s: ARRAY OF CHAR);
+PROCEDURE AddJsonRange (VAR b: Buf; p: CharPtr; lo, hi: CARDINAL);
+(* Like AddJsonRange but collapses runs of whitespace to a single space. *)
+PROCEDURE AddJsonFlat (VAR b: Buf; p: CharPtr; lo, hi, limit: CARDINAL);
+PROCEDURE SetStr (VAR b: Buf; s: ARRAY OF CHAR);
+
+PROCEDURE Eq (a, b: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE Len (a: ARRAY OF CHAR): CARDINAL;
+PROCEDURE Copy (VAR dst: ARRAY OF CHAR; src: ARRAY OF CHAR);
+PROCEDURE CopyRange (VAR dst: ARRAY OF CHAR; p: CharPtr; lo, hi: CARDINAL);
+PROCEDURE Append (VAR dst: ARRAY OF CHAR; src: ARRAY OF CHAR);
+PROCEDURE UpCh (c: CHAR): CHAR;
+PROCEDURE IsIdStart (c: CHAR): BOOLEAN;
+PROCEDURE IsIdChar (c: CHAR): BOOLEAN;
+PROCEDURE IsDigit (c: CHAR): BOOLEAN;
+PROCEDURE IsSpace (c: CHAR): BOOLEAN;
+(* TRUE if name starts with prefix, ignoring case. An empty prefix matches. *)
+PROCEDURE HasPrefixCI (name, prefix: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE BufEqStr (VAR b: Buf; s: ARRAY OF CHAR): BOOLEAN;
+
+END Text.

@@ -1,0 +1,64 @@
+DEFINITION MODULE Symbols;
+(* Declaration scanner: turns a token stream into a flat symbol table with scopes,
+   record fields, enum members, imports and (cheap) type names. *)
+
+FROM Text IMPORT Buf, CharPtr;
+FROM Lexer IMPORT TokPtr;
+
+CONST
+  NameLen = 64;
+  PathLen = 1024;
+
+TYPE
+  Name = ARRAY [0..NameLen - 1] OF CHAR;
+
+  SymKind = (skModule, skConst, skType, skVar, skField, skParam, skProc, skEnum, skImport, skWith);
+
+  Sym = RECORD
+          name: Name;
+          kind: SymKind;
+          tok: CARDINAL;        (* token index of the name *)
+          scope: INTEGER;       (* enclosing procedure symbol, -1 = module level, -2 = field *)
+          owner: INTEGER;       (* fields and enum members: the owning type symbol *)
+          typeName: Name;       (* first type identifier of the declaration, "" if unknown *)
+          typeMod: Name;        (* qualifier in Module.Type *)
+          imp: Name;            (* skImport: module it comes from; skWith: dotted designator *)
+          isRecord: BOOLEAN;    (* type: is a record; var/field: has an anonymous record type *)
+          anonOwner: INTEGER;   (* var/field with an anonymous record: the symbol owning its fields *)
+          dFrom, dTo: CARDINAL; (* declaration text, for hover / detail *)
+          bodyEnd: CARDINAL     (* procedures with a body: offset of the closing END *)
+        END;
+
+  SymPtr = POINTER TO ARRAY [0..50000000] OF Sym;
+
+  Doc = POINTER TO DocRec;
+  DocRec = RECORD
+             path: ARRAY [0..PathLen - 1] OF CHAR;
+             modName: Name;
+             isDef: BOOLEAN;
+             text: Buf;
+             toks: TokPtr;
+             ntoks: CARDINAL;
+             syms: SymPtr;
+             nsyms, scap: CARDINAL
+           END;
+
+PROCEDURE NewDoc (path: ARRAY OF CHAR): Doc;
+PROCEDURE FreeDoc (VAR d: Doc);
+(* Replace the text (copied) and rescan. *)
+PROCEDURE SetText (d: Doc; p: CharPtr; len: CARDINAL);
+PROCEDURE LoadFile (d: Doc): BOOLEAN;
+
+(* Scope-aware lookup of a plain identifier at a text offset; -1 if unknown. *)
+PROCEDURE Lookup (d: Doc; name: ARRAY OF CHAR; offset: CARDINAL): INTEGER;
+(* Like Lookup, but only types (and imported names, which may be types). *)
+PROCEDURE LookupType (d: Doc; name: ARRAY OF CHAR; offset: CARDINAL): INTEGER;
+(* Module-level symbol (any kind except field/param/local), -1 if unknown. *)
+PROCEDURE FindGlobal (d: Doc; name: ARRAY OF CHAR): INTEGER;
+PROCEDURE FindTypeGlobal (d: Doc; name: ARRAY OF CHAR): INTEGER;
+PROCEDURE FindField (d: Doc; owner: INTEGER; name: ARRAY OF CHAR): INTEGER;
+(* innermost procedure whose body contains offset, -1 if none *)
+PROCEDURE EnclosingProc (d: Doc; offset: CARDINAL): INTEGER;
+PROCEDURE KindName (k: SymKind; VAR s: ARRAY OF CHAR);
+
+END Symbols.

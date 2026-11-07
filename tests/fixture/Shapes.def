@@ -1,0 +1,25 @@
+DEFINITION MODULE Shapes;
+(* geometry helpers *)
+
+CONST
+  MaxShapes = 16;
+
+TYPE
+  Kind = (Circle, Square, Triangle);
+  Point = RECORD
+            x, y: INTEGER
+          END;
+  Shape = POINTER TO ShapeRec;
+  ShapeRec = RECORD
+               kind: Kind;
+               origin: Point;
+               size: CARDINAL
+             END;
+
+VAR
+  count: CARDINAL;
+
+PROCEDURE NewShape (k: Kind; at: Point; size: CARDINAL): Shape;
+PROCEDURE Area (s: Shape): CARDINAL;
+
+END Shapes.

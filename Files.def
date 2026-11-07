@@ -1,0 +1,20 @@
+DEFINITION MODULE Files;
+(* Whole-file I/O and path helpers on top of libc. *)
+
+FROM Text IMPORT Buf;
+
+PROCEDURE ReadFile (path: ARRAY OF CHAR; VAR b: Buf): BOOLEAN;
+PROCEDURE WriteFile (path: ARRAY OF CHAR; VAR b: Buf): BOOLEAN;
+PROCEDURE Exists (path: ARRAY OF CHAR): BOOLEAN;
+PROCEDURE DirName (path: ARRAY OF CHAR; VAR dir: ARRAY OF CHAR);
+PROCEDURE BaseName (path: ARRAY OF CHAR; VAR base: ARRAY OF CHAR);
+(* base name without extension *)
+PROCEDURE Stem (path: ARRAY OF CHAR; VAR stem: ARRAY OF CHAR);
+PROCEDURE HasExt (path: ARRAY OF CHAR; ext: ARRAY OF CHAR): BOOLEAN;
+(* file:// URI <-> path, with %XX handling *)
+PROCEDURE UriToPath (VAR uri: Buf; VAR path: ARRAY OF CHAR);
+PROCEDURE PathToUri (path: ARRAY OF CHAR; VAR uri: Buf);
+(* single-quote a string for /bin/sh *)
+PROCEDURE ShellQuote (s: ARRAY OF CHAR; VAR out: ARRAY OF CHAR);
+
+END Files.

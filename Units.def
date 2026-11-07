@@ -1,0 +1,13 @@
+DEFINITION MODULE Units;
+(* Finds and caches the definition modules (.def) that a document imports. *)
+
+FROM Symbols IMPORT Doc;
+
+(* Add a directory to the .def search path (library dirs, -I dirs). *)
+PROCEDURE AddDir (dir: ARRAY OF CHAR);
+(* Locate Module.def: first in localDir, then along the search path. NIL if absent. *)
+PROCEDURE Find (module, localDir: ARRAY OF CHAR): Doc;
+(* Forget a cached unit, e.g. after its file was saved. *)
+PROCEDURE Invalidate (path: ARRAY OF CHAR);
+
+END Units.

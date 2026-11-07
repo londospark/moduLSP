@@ -1,0 +1,39 @@
+DEFINITION MODULE Lexer;
+(* Modula-2 tokenizer (PIM / ISO / GNU). Comments are skipped, nested (* *) is handled. *)
+
+FROM Text IMPORT CharPtr;
+
+TYPE
+  Kw = (kwNone,
+        kwAND, kwARRAY, kwBEGIN, kwBY, kwCASE, kwCONST, kwDEFINITION, kwDIV,
+        kwDO, kwELSE, kwELSIF, kwEND, kwEXIT, kwEXPORT, kwFOR, kwFROM, kwIF,
+        kwIMPLEMENTATION, kwIMPORT, kwIN, kwLOOP, kwMOD, kwMODULE, kwNOT, kwOF,
+        kwOR, kwPOINTER, kwPROCEDURE, kwQUALIFIED, kwRECORD, kwREPEAT, kwRETURN,
+        kwSET, kwTHEN, kwTO, kwTYPE, kwUNTIL, kwVAR, kwWHILE, kwWITH);
+
+  TokKind = (tkIdent, tkKeyword, tkNumber, tkString, tkSym);
+
+  Token = RECORD
+            kind: TokKind;
+            kw: Kw;
+            start, stop: CARDINAL;   (* byte offsets, stop exclusive *)
+            line, col: CARDINAL;     (* zero based *)
+            c1, c2: CHAR             (* symbol characters, c2 = 0C if single *)
+          END;
+
+  TokPtr = POINTER TO ARRAY [0..100000000] OF Token;
+
+PROCEDURE Tokenize (src: CharPtr; len: CARDINAL; VAR toks: TokPtr; VAR n: CARDINAL);
+PROCEDURE FreeTokens (VAR toks: TokPtr);
+
+(* 0 = code, 1 = inside a comment, 2 = inside a string literal *)
+PROCEDURE Context (src: CharPtr; len, offset: CARDINAL): CARDINAL;
+PROCEDURE OffsetOf (src: CharPtr; len, line, col: CARDINAL): CARDINAL;
+PROCEDURE LineCol (src: CharPtr; len, offset: CARDINAL; VAR line, col: CARDINAL);
+PROCEDURE LineEnd (src: CharPtr; len, offset: CARDINAL): CARDINAL;
+
+(* All reserved words, for completion. *)
+PROCEDURE KeywordCount (): CARDINAL;
+PROCEDURE KeywordText (i: CARDINAL; VAR s: ARRAY OF CHAR);
+
+END Lexer.

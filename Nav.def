@@ -1,0 +1,14 @@
+DEFINITION MODULE Nav;
+(* Language features: completion, hover, go-to-definition, document symbols.
+   Every procedure appends the JSON "result" value to out. *)
+
+FROM Symbols IMPORT Doc;
+FROM Text IMPORT Buf;
+
+PROCEDURE Complete (d: Doc; offset: CARDINAL; VAR out: Buf);
+(* FALSE (and nothing written) if there is nothing to show *)
+PROCEDURE Hover (d: Doc; offset: CARDINAL; VAR out: Buf): BOOLEAN;
+PROCEDURE Definition (d: Doc; VAR uri: Buf; offset: CARDINAL; VAR out: Buf): BOOLEAN;
+PROCEDURE DocumentSymbols (d: Doc; VAR uri: Buf; VAR out: Buf);
+
+END Nav.
